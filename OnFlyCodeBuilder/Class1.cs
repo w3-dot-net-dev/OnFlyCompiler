@@ -8,5 +8,9 @@
 		{
 			Console.WriteLine("Hello!!!");
 		}
+
+		public static string B(string x) => x + " ";
+
+		public static int V => 10;
 	}
 }

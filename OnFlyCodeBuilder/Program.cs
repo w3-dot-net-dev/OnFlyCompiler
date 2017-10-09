@@ -15,12 +15,27 @@
 		private static void Main(string[] args)
 		{
 
+			var console = SyntaxFactory.IdentifierName("Console");
+			var writeline = SyntaxFactory.IdentifierName("WriteLine");
+			var memberaccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, console, writeline);
+
+			var argument = SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal("A")));
+			var argumentList = SyntaxFactory.SeparatedList(new[] { argument });
+
+			var writeLineCall =
+				SyntaxFactory.ExpressionStatement(
+					SyntaxFactory.InvocationExpression(memberaccess,
+						SyntaxFactory.ArgumentList(argumentList)));
+
 			string assemblyName = $"cls{Guid.NewGuid():N}".ToUpper(CultureInfo.InvariantCulture);
 
 
 			PredefinedTypeSyntax voidTypeSyntax = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
 
-			MethodDeclarationSyntax method = SyntaxFactory.MethodDeclaration
+			//MethodDeclarationSyntax method = SyntaxFactory.MethodDeclaration(voidTypeSyntax, "Main")
+			//	.WithBody(SyntaxFactory.Block());
+
+			MethodDeclarationSyntax methodDeclaration = SyntaxFactory.MethodDeclaration
 			(
 				attributeLists: SyntaxFactory.List<AttributeListSyntax>() , //new Microsoft.CodeAnalysis.SyntaxList<Microsoft.CodeAnalysis.CSharp.Syntax.AttributeListSyntax>(),
 				modifiers: SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword)),
@@ -33,18 +48,17 @@
 				body: SyntaxFactory.Block(), //(Microsoft.CodeAnalysis.CSharp.Syntax.BlockSyntax)null,
 				expressionBody: (Microsoft.CodeAnalysis.CSharp.Syntax.ArrowExpressionClauseSyntax)null,
 				semicolonToken: SyntaxFactory.Token(SyntaxKind.None)
-			);
-
-			//MethodDeclarationSyntax method = SyntaxFactory.MethodDeclaration(voidTypeSyntax, "Main")
-			//	.WithBody(SyntaxFactory.Block());
-
+			).AddBodyStatements(writeLineCall);
 
 			SyntaxList<AttributeListSyntax> attributeLists = SyntaxFactory.List<AttributeListSyntax>();
-			SyntaxTokenList modifiers = SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.InternalKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+			SyntaxTokenList modifiers = SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
 			SyntaxToken classIdentifier = SyntaxFactory.Identifier("Program");
 			TypeParameterListSyntax typeParameterListSyntax = SyntaxFactory.TypeParameterList(default(SeparatedSyntaxList<TypeParameterSyntax>));
 			BaseListSyntax baseListSyntax = SyntaxFactory.BaseList(default(SeparatedSyntaxList<BaseTypeSyntax>));
 			SyntaxList<TypeParameterConstraintClauseSyntax> typeParameterConstraintClauseSyntaxs = SyntaxFactory.List<TypeParameterConstraintClauseSyntax>();
+
+			//SyntaxFactory.ExpressionStatement(
+			//SyntaxFactory.InvocationExpression()
 
 
 			#region Class Defenition
@@ -66,7 +80,7 @@
 
 			#endregion
 
-			var @class = SyntaxFactory.ClassDeclaration
+			var classDeclaration = SyntaxFactory.ClassDeclaration
 				(
 					attributeLists: attributeLists,
 					modifiers: modifiers,
@@ -80,7 +94,7 @@
 					closeBraceToken: SyntaxFactory.Token(SyntaxKind.CloseBraceToken),
 					semicolonToken: SyntaxFactory.Token(SyntaxKind.None)
 				)
-				.AddMembers(method); //.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+				.AddMembers(methodDeclaration); //.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
 
 			NameSyntax namespaceName = SyntaxFactory.IdentifierName(assemblyName);
 
@@ -94,7 +108,9 @@
 				default(SyntaxList<MemberDeclarationSyntax>),
 				SyntaxFactory.Token(SyntaxKind.CloseBraceToken),
 				SyntaxFactory.Token(SyntaxKind.None)
-			).AddMembers(@class);
+			)
+			.AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName("System")))
+			.AddMembers(classDeclaration);
 
 
 			CompilationUnitSyntax compilationUnitSyntax = SyntaxFactory.CompilationUnit()
@@ -113,7 +129,7 @@
 				assemblyName: assemblyName,
 				syntaxTrees: new[] { syntaxTree },
 				references: references,
-				options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary/*, mainTypeName: assemblyName + ".Program", usings: new[] { "System" }*/)
+				options: new CSharpCompilationOptions(OutputKind.ConsoleApplication/*, mainTypeName: assemblyName + ".Program", usings: new[] { "System" }*/)
 			);
 
 			EmitResult result;
@@ -123,6 +139,12 @@
 			{
 				result = compilation.Emit(ms);
 				bytes = ms.ToArray();
+			}
+
+			if (result.Success)
+			{
+				Assembly assembly = Assembly.Load(bytes);
+				assembly.EntryPoint.Invoke(null, /*new object[] { new[] { Environment.CurrentDirectory } }*/ null);
 			}
 
 			var diagnostics = result.Diagnostics.ToArray();
